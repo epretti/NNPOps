@@ -23,24 +23,20 @@ jobs:
         include:
 
           # Oldest supported versions
-          - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.0)
+          - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.2)
             enable_cuda: true
             cuda: "11.8.0"
-            gcc: "10.3.*"
-            nvcc: "11.8"
             python: "3.10.*"
-            torchani: "2.2.*"
-            pytorch: "2.0.*"
+            torch: "2.2.*"
+            torchani: "2.7.*"
 
-          # Latest supported versions (with CUDA)
-          - name: Linux (CUDA 12, Python 3.13, PyTorch 2.5)
+          # Latest supported versions
+          - name: Linux (CUDA 12.8, Python 3.13, PyTorch 2.9)
             enable_cuda: true
-            cuda: "12.6.0"
-            gcc: "10.3.*"
-            nvcc: "12.*"
+            cuda: "12.8.1"
             python: "3.13.*"
-            torchani: "2.2.*"
-            pytorch: "2.5.*"
+            torch: "2.9.*"
+            torchani: "2.7.*"
 
     steps:
     - name: Check out
@@ -50,7 +46,7 @@ jobs:
       uses: jlumbroso/free-disk-space@main
 
     - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.21
+      uses: Jimver/cuda-toolkit@v0.2.29
       with:
         cuda: ${{ matrix.cuda }}
         linux-local-args: '["--toolkit", "--override"]'
@@ -67,25 +63,24 @@ jobs:
 
     - name: Prepare dependencies
       run: |
-        sed -i -e "/gxx_linux-64/c\  - gxx_linux-64 ${{ matrix.gcc }}" \
-               -e "/torchani/c\  - torchani ${{ matrix.torchani }}" \
-               -e "/python/c\  - python ${{ matrix.python }}" \
-               -e "/pytorch-gpu/c\  - pytorch-gpu ${{ matrix.pytorch }}" \
-               environment.yml
+        sed -i -e "/torch /c\torch == ${{ matrix.torch }}" \
+               -e "/torchani /c\torchani == ${{ matrix.torchani }}" \
+               requirements.txt
 
     - name: Show dependency file
-      run: cat environment.yml
+      run: cat requirements.txt
 
     - name: Install dependencies
-      run: mamba env create -n nnpops -f environment.yml
-      env:
-        # Needed to install pytorch-gpu on a machine without a GPU
-        CONDA_OVERRIDE_CUDA: ${{ matrix.nvcc }}
+      run: |
+        mamba env create -n nnpops "python=${{ matrix.python }}"
+        conda activate nnpops
+        pip install -r requirements.txt
 
-    - name: List conda environment
+    - name: List environment
       run: |
         conda activate nnpops
         conda list
+        pip freeze
 
     - name: Configure, compile, and install
       run: |

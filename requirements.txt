@@ -1,0 +1,4 @@
+pytest
+mdtraj
+torch >= 2.0
+torchani >= 2.7

@@ -141,7 +141,8 @@ def getNeighborPairs(
 
     if box_vectors is None:
         box_vectors = empty((0, 0), device=positions.device, dtype=positions.dtype)
+    # Convert max_num_pairs to int (it might be a NumPy int type incompatible with PyTorch)
     neighbors, deltas, distances, number_found_pairs = ops.neighbors.getNeighborPairs(
-        positions, cutoff, max_num_pairs, box_vectors, check_errors
+        positions, cutoff, int(max_num_pairs), box_vectors, check_errors
     )
     return neighbors, deltas, distances, number_found_pairs
