@@ -31,10 +31,10 @@ jobs:
             torchani: "2.7.*"
 
           # Latest supported versions
-          - name: Linux (CUDA 12.8, Python 3.14, PyTorch 2.9)
+          - name: Linux (CUDA 12.8, Python 3.13, PyTorch 2.9)
             enable_cuda: true
             cuda: "12.8.1"
-            python: "3.14.*"
+            python: "3.13.*"
             torch: "2.9.*"
             torchani: "2.7.*"
 
@@ -72,9 +72,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-        mamba env create -n nnpops "python=${{ matrix.python }}"
+        mamba env create -n nnpops "python=${{ matrix.python }}" pip
         conda activate nnpops
         pip install -r requirements.txt
+        ani build-extensions
 
     - name: List environment
       run: |
