@@ -23,11 +23,11 @@ jobs:
         include:
 
           # Oldest supported versions
-          - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.0)
+          - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.2)
             enable_cuda: true
             cuda: "11.8.0"
             python: "3.10.*"
-            torch: "2.0.*"
+            torch: "2.2.*"
             torchani: "2.7.*"
 
           # Latest supported versions
@@ -73,9 +73,10 @@ jobs:
     - name: Install dependencies
       run: |
         mamba env create -n nnpops "python=${{ matrix.python }}"
+        conda activate nnpops
         pip install -r requirements.txt
 
-    - name: List conda environment
+    - name: List environment
       run: |
         conda activate nnpops
         conda list
