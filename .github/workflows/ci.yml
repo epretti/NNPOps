@@ -72,10 +72,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        mamba env create -n nnpops "python=${{ matrix.python }}" pip
+        mamba env create -n nnpops "python=${{ matrix.python }}"
         conda activate nnpops
         pip install -r requirements.txt
-        ani build-extensions
 
     - name: List environment
       run: |
