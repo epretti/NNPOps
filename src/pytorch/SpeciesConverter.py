@@ -1,3 +1,11 @@
+#
+# Copyright (c) 2020-2021 Acellera
+# Authors: Raimondas Galvelis
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
@@ -15,28 +23,24 @@
 
 import torch
 from torch import Tensor
-from typing import NamedTuple, Optional, Tuple
-
-class SpeciesCoordinates(NamedTuple):
-    species: Tensor
-    coordinates: Tensor
 
 class TorchANISpeciesConverter(torch.nn.Module):
 
-    def __init__(self, converter, atomicNumbers: Tensor) -> None:
+    def __init__(self, converter, atomic_nums: Tensor) -> None:
 
         super().__init__()
 
         # Convert atomic numbers to a list of species
-        species = converter((atomicNumbers, torch.empty(0))).species
+        species = converter(atomic_nums)
         self.register_buffer('species', species)
 
-        self.conv_tensor = converter.conv_tensor # Just to make TorchScript happy :)
+        # TODO: not needed for PyTorch 2.9; do any supported versions require it?
+        # self.conv_tensor = converter.conv_tensor # Just to make TorchScript happy :)
 
-    def forward(self, species_coordinates: Tuple[Tensor, Tensor],
-                cell: Optional[Tensor] = None,
-                pbc: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
-
-        _, coordinates = species_coordinates
-
-        return SpeciesCoordinates(self.species, coordinates)
+    def forward(self, atomic_nums: Tensor, nop: bool = False, _dont_use: bool = False) -> Tensor:
+        # Match TorchANI signature and behavior exactly here
+        if _dont_use:
+            raise ValueError("_dont_use should never be set")
+        if nop:
+            return atomic_nums
+        return self.species
