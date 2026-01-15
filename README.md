@@ -26,7 +26,7 @@ not model parameters.
 
 ## Installation
 
-### Install with Conda
+### Install with `conda`
 
 A [conda](https://docs.conda.io/) package can be installed from the [conda-forge channel](https://anaconda.org/conda-forge/nnpops):
 ```bash
@@ -38,8 +38,7 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 
 #### Prerequisites
 
-- *CUDA Toolkit* (https://developer.nvidia.com/cuda-downloads)
-- *Miniconda* (https://docs.conda.io/en/latest/miniconda.html#linux-installers)
+- `conda` (*e.g.*, from [Miniconda](https://docs.conda.io/en/latest/miniconda.html))
 
 #### Build & install
 
@@ -48,12 +47,7 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 $ git clone https://github.com/openmm/NNPOps.git
 ```
 
-- Set `CUDA_HOME`
-```bash
-$ export CUDA_HOME=/usr/local/cuda-11.2
-```
-
-- Crate and activate a *Conda* environment
+- Create and activate a `conda` environment
 ```bash
 $ cd NNPOps
 $ conda env create -n nnpops -f environment.yml
@@ -63,9 +57,7 @@ $ conda activate nnpops
 - Configure, build, and install
 ```bash
 $ mkdir build && cd build
-$ cmake .. \
-        -DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch \
-        -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 $ make install
 ```
 
