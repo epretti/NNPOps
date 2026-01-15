@@ -313,7 +313,7 @@ void CudaANISymmetryFunctions::computeSymmetryFunctions(const float* positions, 
     float* angularPtr;
     cudaPointerAttributes attrib;
     cudaError_t result = cudaPointerGetAttributes(&attrib, radial);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         radialOnDevice = false;
         radialPtr = radialValues;
     }
@@ -322,7 +322,7 @@ void CudaANISymmetryFunctions::computeSymmetryFunctions(const float* positions, 
         radialPtr = (float*) attrib.devicePointer;
     }
     result = cudaPointerGetAttributes(&attrib, angular);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         angularOnDevice = false;
         angularPtr = angularValues;
     }
@@ -340,7 +340,7 @@ void CudaANISymmetryFunctions::computeSymmetryFunctions(const float* positions, 
         // efficient way of doing that.
 
         result = cudaPointerGetAttributes(&attrib, periodicBoxVectors);
-        if (result != cudaSuccess || attrib.hostPointer == 0) {
+        if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.hostPointer == 0) {
             CHECK_RESULT(cudaMemcpy(this->periodicBoxVectors, periodicBoxVectors, 9*sizeof(float), cudaMemcpyDefault));
             hostBoxVectors = this->periodicBoxVectors;
         }
@@ -609,21 +609,21 @@ void CudaANISymmetryFunctions::backprop(const float* radialDeriv, const float* a
     float* posPtr;
     cudaPointerAttributes attrib;
     cudaError_t result = cudaPointerGetAttributes(&attrib, radialDeriv);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         CHECK_RESULT(cudaMemcpyAsync(radialValues, radialDeriv, numAtoms*numSpecies*numRadial*sizeof(float), cudaMemcpyDefault, stream));
         radialPtr = radialValues;
     }
     else
         radialPtr = (float*) attrib.devicePointer;
     result = cudaPointerGetAttributes(&attrib, angularDeriv);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         CHECK_RESULT(cudaMemcpyAsync(angularValues, angularDeriv, numAtoms*(numSpecies*(numSpecies+1))*numAngular*sizeof(float)/2, cudaMemcpyDefault, stream));
         angularPtr = angularValues;
     }
     else
         angularPtr = (float*) attrib.devicePointer;
     result = cudaPointerGetAttributes(&attrib, positionDeriv);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         posOnDevice = false;
         posPtr = positionDerivValues;
     }

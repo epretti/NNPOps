@@ -134,7 +134,7 @@ void CudaCFConvNeighbors::build(const float* positions, const float* periodicBox
 
     cudaPointerAttributes attrib;
     cudaError_t result = cudaPointerGetAttributes(&attrib, positions);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         CHECK_RESULT(cudaMemcpyAsync(this->positions, positions, 3*getNumAtoms()*sizeof(float), cudaMemcpyDefault));
         devicePositions = this->positions;
     }
@@ -147,7 +147,7 @@ void CudaCFConvNeighbors::build(const float* positions, const float* periodicBox
    const float* hostBoxVectors;
     if (getPeriodic()) {
         result = cudaPointerGetAttributes(&attrib, periodicBoxVectors);
-        if (result != cudaSuccess || attrib.devicePointer == 0) {
+        if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
             CHECK_RESULT(cudaMemcpyAsync(this->periodicBoxVectors, periodicBoxVectors, 9*sizeof(float), cudaMemcpyDefault));
             hostBoxVectors = periodicBoxVectors;
             deviceBoxVectors = this->periodicBoxVectors;
@@ -239,7 +239,7 @@ CudaCFConv::~CudaCFConv() {
 float* CudaCFConv::ensureOnDevice(float* arg, float*& deviceMemory, int size) {
     cudaPointerAttributes attrib;
     cudaError_t result = cudaPointerGetAttributes(&attrib, arg);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         if (deviceMemory == 0)
             CHECK_RESULT(cudaMallocManaged(&deviceMemory, size));
         CHECK_RESULT(cudaMemcpyAsync(deviceMemory, arg, size, cudaMemcpyDefault));
@@ -251,7 +251,7 @@ float* CudaCFConv::ensureOnDevice(float* arg, float*& deviceMemory, int size) {
 const float* CudaCFConv::ensureOnDevice(const float* arg, float*& deviceMemory, int size) {
     cudaPointerAttributes attrib;
     cudaError_t result = cudaPointerGetAttributes(&attrib, arg);
-    if (result != cudaSuccess || attrib.devicePointer == 0) {
+    if (result != cudaSuccess || attrib.type != cudaMemoryTypeDevice || attrib.devicePointer == 0) {
         if (deviceMemory == 0)
             CHECK_RESULT(cudaMallocManaged(&deviceMemory, size));
         CHECK_RESULT(cudaMemcpyAsync(deviceMemory, arg, size, cudaMemcpyDefault));
