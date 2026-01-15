@@ -16,7 +16,6 @@ enable_testing()
 # Source files of the library
 set(SRC_FILES src/ani/CpuANISymmetryFunctions.cpp
               src/ani/CudaANISymmetryFunctions.cu
-              src/pytorch/BatchedNN.cpp
               src/pytorch/CFConv.cpp
               src/pytorch/CFConvNeighbors.cpp
               src/pytorch/SymmetryFunctions.cpp
@@ -75,8 +74,8 @@ add_custom_target(copy_test ALL
 add_custom_command(
   TARGET copy_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
-  ${CMAKE_SOURCE_DIR}/src/pytorch/molecules
-  ${CMAKE_BINARY_DIR}/test/molecules
+  ${CMAKE_SOURCE_DIR}/src/pytorch/test_data
+  ${CMAKE_BINARY_DIR}/test/test_data
 )
 
 # Copy each test to the binary dir and add it
@@ -103,12 +102,8 @@ add_test(TestGetNeighborPairs  pytest -v --doctest-modules ${CMAKE_BINARY_DIR}/t
 # Installation
 install(TARGETS ${LIBRARY} DESTINATION ${Python3_SITEARCH}/${NAME})
 install(FILES src/pytorch/__init__.py
-              src/pytorch/BatchedNN.py
               src/pytorch/CFConv.py
               src/pytorch/CFConvNeighbors.py
-              src/pytorch/EnergyShifter.py
-              src/pytorch/OptimizedTorchANI.py
-              src/pytorch/SpeciesConverter.py
               src/pytorch/SymmetryFunctions.py
         DESTINATION ${Python3_SITEARCH}/${NAME})
 install(FILES src/pytorch/neighbors/__init__.py
