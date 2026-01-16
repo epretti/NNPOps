@@ -2,12 +2,8 @@ channels:
   - conda-forge
 dependencies:
   - cmake >=3.20
-  - gxx_linux-64 10.3.*
+  - gxx
   - make
-  - mdtraj
-  - torchani 2.2.*
   - pytest
-  - python 3.10.*
-  - pytorch-gpu 2.0.*
-  - sysroot_linux-64 2.17
-
+  - python
+  - pytorch-gpu

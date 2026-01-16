@@ -23,6 +23,7 @@
 
 import torch
 from torch import Tensor
+from typing import Optional
 
 class ANISymmetryFunctions(torch.nn.Module):
     """
@@ -67,7 +68,7 @@ class ANISymmetryFunctions(torch.nn.Module):
 
         self.holder = ANISymmetryFunctions.Holder(numSpecies, Rcr, Rca, EtaR, ShfR, EtaA, Zeta, ShfA, ShfZ, atomSpecies)
 
-    def forward(self, positions: Tensor, cell: Tensor | None = None) -> list[Tensor]:
+    def forward(self, positions: Tensor, cell: Optional[Tensor] = None) -> list[Tensor]:
         """
         Evaluate the ANI symmetry functions.
 
