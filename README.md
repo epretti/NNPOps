@@ -39,7 +39,7 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 #### Prerequisites
 
 - *CUDA Toolkit* (https://developer.nvidia.com/cuda-downloads)
-- *Miniconda* (https://docs.conda.io/en/latest/miniconda.html#linux-installers)
+- *Miniconda* (https://docs.conda.io/en/latest/miniconda.html)
 
 #### Build & install
 
@@ -48,24 +48,20 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 $ git clone https://github.com/openmm/NNPOps.git
 ```
 
-- Set `CUDA_HOME`
-```bash
-$ export CUDA_HOME=/usr/local/cuda-11.2
-```
-
-- Create and activate a *Conda* environment
+- Create and activate a Conda environment
 ```bash
 $ cd NNPOps
 $ conda env create -n nnpops -f environment.yml
 $ conda activate nnpops
 ```
 
-- Configure, build, and install
+- Configure, build, and install (note: for some older PyTorch versions, you may
+  need to add `-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch`
+  as an argument to `cmake`; for newer PyTorch versions, this is unnecessary,
+  and may actually cause CMake configuration to fail)
 ```bash
 $ mkdir build && cd build
-$ cmake .. \
-        -DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch \
-        -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 $ make install
 ```
 

@@ -41,7 +41,7 @@ jobs:
             python: "3.13.*"
             pytorch: "2.5.*"
 
-          # Latest supported versions (with CUDA)
+          # Newest supported versions
           - name: Linux (CUDA 12.9, Python 3.13, PyTorch 2.9)
             enable_cuda: true
             set_torch_dir: false
@@ -105,6 +105,10 @@ jobs:
             # find it automatically, and including this breaks the build.
             SET_TORCH_DIR="-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch"
         fi
+        # For newer PyTorch, it is necessary to point CMake to the nvcc that we
+        # installed directly onto the system; otherwise, it will pick up the
+        # one pulled in by conda after installing pytorch-gpu, and break since
+        # the CUDA headers will be missing.
         cmake .. \
               -DENABLE_CUDA=${{ matrix.enable_cuda }} \
               -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
