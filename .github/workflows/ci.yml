@@ -100,7 +100,7 @@ jobs:
         conda activate nnpops
         mkdir build && cd build
         SET_TORCH_DIR=""
-        if [ ${{ matrix.set_torch_dir }} ]; then
+        if [ "${{ matrix.set_torch_dir }}" = "true" ]; then
             # For older PyTorch, this is necessary; for newer PyTorch, CMake can
             # find it automatically, and including this breaks the build.
             SET_TORCH_DIR="-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch"
