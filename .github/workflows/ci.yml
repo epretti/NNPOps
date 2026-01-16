@@ -63,7 +63,7 @@ jobs:
       run: |
         sed -i -e "/python/c\  - python ${{ matrix.python }}" \
                -e "/pytorch-gpu/c\  - pytorch-gpu ${{ matrix.pytorch }}" \
-               -e "/cuda-toolkit/d"
+               -e "/cuda-toolkit/d" \
                environment.yml
 
     - name: Show dependency file
