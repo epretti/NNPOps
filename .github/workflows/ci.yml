@@ -25,6 +25,7 @@ jobs:
           # Oldest supported versions
           - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.0)
             enable_cuda: true
+            set_torch_dir: true
             cuda: "11.8.0"
             gcc: "10.3.*"
             nvcc: "11.8"
@@ -33,6 +34,7 @@ jobs:
 
           - name: Linux (CUDA 12.6, Python 3.13, PyTorch 2.5)
             enable_cuda: true
+            set_torch_dir: true
             cuda: "12.6.0"
             gcc: "10.3.*"
             nvcc: "12.*"
@@ -42,6 +44,7 @@ jobs:
           # Latest supported versions (with CUDA)
           - name: Linux (CUDA 12.9, Python 3.13, PyTorch 2.9)
             enable_cuda: true
+            set_torch_dir: false
             cuda: "12.9.0"
             gcc: "14.*"
             nvcc: "12.9"
@@ -99,7 +102,7 @@ jobs:
         cmake .. \
               -DENABLE_CUDA=${{ matrix.enable_cuda }} \
               -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
-              -DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch \
+              ${{ matrix.set_torch_dir && "-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch" || "" }} \
               -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
         make install
 
