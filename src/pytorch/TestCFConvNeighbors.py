@@ -26,8 +26,6 @@ import pytest
 import tempfile
 import torch
 
-molecules = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'molecules')
-
 def test_import():
     import NNPOps
     import NNPOps.CFConvNeighbors

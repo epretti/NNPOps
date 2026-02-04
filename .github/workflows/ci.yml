@@ -25,22 +25,31 @@ jobs:
           # Oldest supported versions
           - name: Linux (CUDA 11.8, Python 3.10, PyTorch 2.0)
             enable_cuda: true
+            set_torch_dir: true
             cuda: "11.8.0"
             gcc: "10.3.*"
             nvcc: "11.8"
             python: "3.10.*"
-            torchani: "2.2.*"
             pytorch: "2.0.*"
 
-          # Latest supported versions (with CUDA)
-          - name: Linux (CUDA 12, Python 3.13, PyTorch 2.5)
+          - name: Linux (CUDA 12.6, Python 3.13, PyTorch 2.5)
             enable_cuda: true
+            set_torch_dir: true
             cuda: "12.6.0"
             gcc: "10.3.*"
             nvcc: "12.*"
             python: "3.13.*"
-            torchani: "2.2.*"
             pytorch: "2.5.*"
+
+          # Newest supported versions
+          - name: Linux (CUDA 12.9, Python 3.13, PyTorch 2.9)
+            enable_cuda: true
+            set_torch_dir: false
+            cuda: "12.9.0"
+            gcc: "14.*"
+            nvcc: "12.9"
+            python: "3.13.*"
+            pytorch: "2.9.*"
 
     steps:
     - name: Check out
@@ -50,7 +59,7 @@ jobs:
       uses: jlumbroso/free-disk-space@main
 
     - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.21
+      uses: Jimver/cuda-toolkit@v0.2.30
       with:
         cuda: ${{ matrix.cuda }}
         linux-local-args: '["--toolkit", "--override"]'
@@ -68,7 +77,6 @@ jobs:
     - name: Prepare dependencies
       run: |
         sed -i -e "/gxx_linux-64/c\  - gxx_linux-64 ${{ matrix.gcc }}" \
-               -e "/torchani/c\  - torchani ${{ matrix.torchani }}" \
                -e "/python/c\  - python ${{ matrix.python }}" \
                -e "/pytorch-gpu/c\  - pytorch-gpu ${{ matrix.pytorch }}" \
                environment.yml
@@ -91,9 +99,20 @@ jobs:
       run: |
         conda activate nnpops
         mkdir build && cd build
+        SET_TORCH_DIR=""
+        if [ "${{ matrix.set_torch_dir }}" = "true" ]; then
+            # For older PyTorch, this is necessary; for newer PyTorch, CMake can
+            # find it automatically, and including this breaks the build.
+            SET_TORCH_DIR="-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch"
+        fi
+        # For newer PyTorch, it is necessary to point CMake to the nvcc that we
+        # installed directly onto the system; otherwise, it will pick up the
+        # one pulled in by conda after installing pytorch-gpu, and break since
+        # the CUDA headers will be missing.
         cmake .. \
               -DENABLE_CUDA=${{ matrix.enable_cuda }} \
-              -DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch \
+              -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+              $SET_TORCH_DIR \
               -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
         make install
 

@@ -39,7 +39,7 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 #### Prerequisites
 
 - *CUDA Toolkit* (https://developer.nvidia.com/cuda-downloads)
-- *Miniconda* (https://docs.conda.io/en/latest/miniconda.html#linux-installers)
+- *Miniconda* (https://docs.conda.io/en/latest/miniconda.html)
 
 #### Build & install
 
@@ -48,24 +48,20 @@ If you don't have `conda`, we recommend installing [Miniconda](https://docs.cond
 $ git clone https://github.com/openmm/NNPOps.git
 ```
 
-- Set `CUDA_HOME`
-```bash
-$ export CUDA_HOME=/usr/local/cuda-11.2
-```
-
-- Crate and activate a *Conda* environment
+- Create and activate a Conda environment
 ```bash
 $ cd NNPOps
 $ conda env create -n nnpops -f environment.yml
 $ conda activate nnpops
 ```
 
-- Configure, build, and install
+- Configure, build, and install (note: for some older PyTorch versions, you may
+  need to add `-DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch`
+  as an argument to `cmake`; for newer PyTorch versions, this is unnecessary,
+  and may actually cause CMake configuration to fail)
 ```bash
 $ mkdir build && cd build
-$ cmake .. \
-        -DTorch_DIR=$(python -c 'import torch.utils; print(torch.utils.cmake_prefix_path)')/Torch \
-        -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 $ make install
 ```
 
@@ -74,56 +70,12 @@ $ make install
 $ ctest --verbose
 ```
 
-## Usage
+## Operations
 
-Accelerated [*TorchANI*](https://aiqm.github.io/torchani/) operations:
-- [`torchani.AEVComputer`](https://aiqm.github.io/torchani/api.html?highlight=speciesaev#torchani.AEVComputer)
-- [`torchani.neurochem.NeuralNetwork`](https://aiqm.github.io/torchani/api.html#module-torchani.neurochem)
+The following optimized operations are present in NNPOps and accessible from
+Python using the listed classes or functions:
 
-### Example
-
-```python
-import mdtraj
-import torch
-import torchani
-
-from NNPOps.SpeciesConverter import TorchANISpeciesConverter
-from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
-from NNPOps.BatchedNN import TorchANIBatchedNN
-from NNPOps.EnergyShifter import TorchANIEnergyShifter
-
-from NNPOps import OptimizedTorchANI
-
-device = torch.device('cuda')
-
-# Load a molecule
-molecule = mdtraj.load('molecule.mol2')
-species = torch.tensor([[atom.element.atomic_number for atom in molecule.top.atoms]], device=device)
-positions = torch.tensor(molecule.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
-
-# Construct ANI-2x and replace its operations with the optimized ones
-nnp = torchani.models.ANI2x(periodic_table_index=True).to(device)
-nnp.species_converter = TorchANISpeciesConverter(nnp.species_converter, species).to(device)
-nnp.aev_computer = TorchANISymmetryFunctions(nnp.species_converter, nnp.aev_computer, species).to(device)
-nnp.neural_networks = TorchANIBatchedNN(nnp.species_converter, nnp.neural_networks, species).to(device)
-nnp.energy_shifter = TorchANIEnergyShifter(nnp.species_converter, nnp.energy_shifter, species).to(device)
-
-# Compute energy and forces
-energy = nnp((species, positions)).energies
-energy.backward()
-forces = -positions.grad.clone()
-
-print(energy, forces)
-
-# Alternatively, all the optimizations can be applied with OptimizedTorchANI
-nnp2 = torchani.models.ANI2x(periodic_table_index=True).to(device)
-nnp2 = OptimizedTorchANI(nnp2, species).to(device)
-
-# Compute energy and forces again
-energy = nnp2((species, positions)).energies
-positions.grad.zero_()
-energy.backward()
-forces = -positions.grad.clone()
-
-print(energy, forces)
-```
+- ANI symmetry functions: `NNPOps.SymmetryFunctions.ANISymmetryFunctions`
+- Continuous filter convolution (CFConv): `NNPOps.CFConv.CFConv`, `NNPOps.CFConv.CFConvNeighbors`
+- Neighbor pair enumeration: `NNPOps.neighbors.getNeighborPairs()`
+- Particle mesh Ewald (PME): `NNPOps.pme.PME`

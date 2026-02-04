@@ -1,6 +1,6 @@
 #
-# Copyright (c) 2020 Acellera
-# Authors: Raimondas Galvelis
+# Copyright (c) 2020 Acellera, 2025 Stanford University and the Authors
+# Authors: Raimondas Galvelis, Evan Pretti
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,159 +21,103 @@
 # SOFTWARE.
 #
 
-import mdtraj
 import os
 import pytest
 import tempfile
 import torch
-import torchani
 
-molecules = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'molecules')
+test_data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_data')
+
+VALUE_TOL = 1e-5
+GRADIENT_TOL = 1e-4
 
 def test_import():
     import NNPOps
     import NNPOps.SymmetryFunctions
 
 @pytest.mark.parametrize('deviceString', ['cpu', 'cuda'])
-@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99'])
-def test_compare_with_native(deviceString, molFile):
+@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99', 'water'])
+def test_compare_with_reference(deviceString, molFile):
 
     if deviceString == 'cuda' and not torch.cuda.is_available():
         pytest.skip('CUDA is not available')
 
-    from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
+    from NNPOps.SymmetryFunctions import ANISymmetryFunctions
 
     device = torch.device(deviceString)
 
-    mol = mdtraj.load(os.path.join(molecules, f'{molFile}_ligand.mol2'))
-    atomicNumbers = torch.tensor([[atom.element.atomic_number for atom in mol.top.atoms]], device=device)
-    atomicPositions = torch.tensor(mol.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
+    test_case = torch.load(os.path.join(test_data_path, f'{molFile}.pt'))
+    positions = test_case['positions'].to(device)
+    positions.requires_grad = True
+    cell = test_case['cell']
+    if cell is not None:
+        cell = cell.to(device)
 
-    nnp = torchani.models.ANI2x(periodic_table_index=True).to(device)
-    energy_ref = nnp((atomicNumbers, atomicPositions)).energies
-    energy_ref.backward()
-    grad_ref = atomicPositions.grad.clone()
+    expected = test_case['output'].to(device)
+    actual = torch.concat(ANISymmetryFunctions(**test_case['parameters'])(positions, cell), dim=1)
+    total = torch.sum(actual)
+    total.backward()
 
-    nnp.aev_computer = TorchANISymmetryFunctions(nnp.species_converter, nnp.aev_computer, atomicNumbers)
-    energy = nnp((atomicNumbers, atomicPositions)).energies
-    atomicPositions.grad.zero_()
-    energy.backward()
-    grad = atomicPositions.grad.clone()
-
-    energy_error = torch.abs((energy - energy_ref)/energy_ref)
-    grad_error = torch.max(torch.abs((grad - grad_ref)/grad_ref))
-
-    assert energy_error < 5e-7
-    if molFile == '3o99':
-        assert grad_error < 7e-3
-    else:
-        assert grad_error < 5e-3
-
+    assert torch.allclose(actual, expected, rtol=VALUE_TOL, atol=VALUE_TOL)
+    assert torch.allclose(positions.grad, test_case['grad'].to(device), rtol=GRADIENT_TOL, atol=GRADIENT_TOL)
 
 @pytest.mark.parametrize('deviceString', ['cpu', 'cuda'])
-def test_compare_waterbox_pbc_with_native(deviceString):
-
-    if deviceString == 'cuda' and not torch.cuda.is_available():
-        pytest.skip('CUDA is not available')
-
-    from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
-
-    device = torch.device(deviceString)
-
-    mol = mdtraj.load(os.path.join(molecules, 'water.pdb'))
-    atomicNumbers = torch.tensor([[atom.element.atomic_number for atom in mol.top.atoms]], device=device)
-    atomicPositions = torch.tensor(mol.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
-    cell = mol.unitcell_vectors[0]
-    cell = torch.tensor(cell, dtype=torch.float32, device=device)*10.0
-    pbc = torch.tensor([True, True, True], dtype=torch.bool, device=device)
-
-    nnp = torchani.models.ANI2x(periodic_table_index=True).to(device)
-    energy_ref = nnp((atomicNumbers, atomicPositions), cell=cell, pbc=pbc).energies
-    energy_ref.backward()
-    grad_ref = atomicPositions.grad.clone()
-
-    nnp.aev_computer = TorchANISymmetryFunctions(nnp.species_converter, nnp.aev_computer, atomicNumbers)
-    energy = nnp((atomicNumbers, atomicPositions), cell=cell, pbc=pbc).energies
-    atomicPositions.grad.zero_()
-    energy.backward()
-    grad = atomicPositions.grad.clone()
-
-    energy_error = torch.abs((energy - energy_ref)/energy_ref)
-    grad_error = torch.max(torch.abs((grad - grad_ref)/grad_ref))
-
-    assert energy_error < 5e-7
-    assert grad_error < 7.5e-3
-
-@pytest.mark.parametrize('deviceString', ['cpu', 'cuda'])
-@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99'])
+@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99', 'water'])
 def test_model_serialization(deviceString, molFile):
 
     if deviceString == 'cuda' and not torch.cuda.is_available():
         pytest.skip('CUDA is not available')
 
-    from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
+    from NNPOps.SymmetryFunctions import ANISymmetryFunctions
 
     device = torch.device(deviceString)
 
-    mol = mdtraj.load(os.path.join(molecules, f'{molFile}_ligand.mol2'))
-    atomicNumbers = torch.tensor([[atom.element.atomic_number for atom in mol.top.atoms]], device=device)
-    atomicPositions = torch.tensor(mol.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
+    test_case = torch.load(os.path.join(test_data_path, f'{molFile}.pt'))
+    positions = test_case['positions'].to(device)
+    positions.requires_grad = True
+    cell = test_case['cell']
+    if cell is not None:
+        cell = cell.to(device)
 
-    nnp_ref = torchani.models.ANI2x(periodic_table_index=True).to(device)
-    nnp_ref.aev_computer = TorchANISymmetryFunctions(nnp_ref.species_converter, nnp_ref.aev_computer, atomicNumbers)
-
-    energy_ref = nnp_ref((atomicNumbers, atomicPositions)).energies
-    energy_ref.backward()
-    grad_ref = atomicPositions.grad.clone()
+    expected = test_case['output'].to(device)
 
     with tempfile.NamedTemporaryFile() as fd:
 
-        torch.jit.script(nnp_ref).save(fd.name)
-        nnp = torch.jit.load(fd.name)
+        torch.jit.script(ANISymmetryFunctions(**test_case['parameters'])).save(fd.name)
+        actual = torch.concat(torch.jit.load(fd.name)(positions, cell), dim=1)
 
-        energy = nnp((atomicNumbers, atomicPositions)).energies
-        atomicPositions.grad.zero_()
-        energy.backward()
-        grad = atomicPositions.grad.clone()
+    total = torch.sum(actual)
+    total.backward()
 
-    energy_error = torch.abs((energy - energy_ref)/energy_ref)
-    grad_error = torch.max(torch.abs((grad - grad_ref)/grad_ref))
+    assert torch.allclose(actual, expected, rtol=VALUE_TOL, atol=VALUE_TOL)
+    assert torch.allclose(positions.grad, test_case['grad'].to(device), rtol=GRADIENT_TOL, atol=GRADIENT_TOL)
 
-    assert energy_error < 5e-7
-    assert grad_error < 5e-3
-
-@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99'])
+@pytest.mark.parametrize('molFile', ['1hvj', '1hvk', '2iuz', '3hkw', '3hky', '3lka', '3o99', 'water'])
 def test_non_default_stream(molFile):
 
     if not torch.cuda.is_available():
         pytest.skip('CUDA is not available')
 
-    from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
+    from NNPOps.SymmetryFunctions import ANISymmetryFunctions
 
     device = torch.device('cuda')
 
-    mol = mdtraj.load(os.path.join(molecules, f'{molFile}_ligand.mol2'))
-    atomicNumbers = torch.tensor([[atom.element.atomic_number for atom in mol.top.atoms]], device=device)
-    atomicPositions = torch.tensor(mol.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
+    test_case = torch.load(os.path.join(test_data_path, f'{molFile}.pt'))
+    positions = test_case['positions'].to(device)
+    positions.requires_grad = True
+    cell = test_case['cell']
+    if cell is not None:
+        cell = cell.to(device)
 
-    nnp = torchani.models.ANI2x(periodic_table_index=True).to(device)
-    nnp.aev_computer = TorchANISymmetryFunctions(nnp.species_converter, nnp.aev_computer, atomicNumbers)
-
-    energy_ref = nnp((atomicNumbers, atomicPositions)).energies
-    energy_ref.backward()
-    grad_ref = atomicPositions.grad.clone()
-
+    expected = test_case['output'].to(device)
+    module = ANISymmetryFunctions(**test_case['parameters'])
     stream = torch.cuda.Stream()
     stream.wait_stream(torch.cuda.current_stream())
     with torch.cuda.stream(stream):
-        energy = nnp((atomicNumbers, atomicPositions)).energies
-        atomicPositions.grad.zero_()
-        energy.backward()
-        grad = atomicPositions.grad.clone()
+        actual = torch.concat(module(positions, cell), dim=1)
+        total = torch.sum(actual)
+        total.backward()
     torch.cuda.current_stream().wait_stream(stream)
 
-    energy_error = torch.abs((energy - energy_ref)/energy_ref)
-    grad_error = torch.max(torch.abs((grad - grad_ref)/grad_ref))
-
-    assert energy_error < 5e-7
-    assert grad_error < 5e-3
+    assert torch.allclose(actual, expected, rtol=5e-5)
+    assert torch.allclose(positions.grad, test_case['grad'].to(device), rtol=GRADIENT_TOL, atol=GRADIENT_TOL)

@@ -35,7 +35,6 @@ set_torch_cuda_arch_list()
 
 sources = [
     opj("ani", "CpuANISymmetryFunctions.cpp"),
-    opj("pytorch", "BatchedNN.cpp"),
     opj("pytorch", "CFConv.cpp"),
     opj("pytorch", "CFConvNeighbors.cpp"),
     opj("pytorch", "SymmetryFunctions.cpp"),

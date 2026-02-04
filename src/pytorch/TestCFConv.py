@@ -26,8 +26,6 @@ import pytest
 import tempfile
 import torch
 
-molecules = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'molecules')
-
 def getCFConv(numFilters, device):
 
     from NNPOps.CFConvNeighbors import CFConvNeighbors

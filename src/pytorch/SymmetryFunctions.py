@@ -1,6 +1,6 @@
 #
-# Copyright (c) 2020 Acellera
-# Authors: Raimondas Galvelis
+# Copyright (c) 2020 Acellera, 2025 Stanford University and the Authors
+# Authors: Raimondas Galvelis, Evan Pretti
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,103 +21,68 @@
 # SOFTWARE.
 #
 
-from typing import List, Optional, Tuple
 import torch
 from torch import Tensor
+from typing import Optional
 
-Holder = torch.classes.NNPOpsANISymmetryFunctions.Holder
-operation = torch.ops.NNPOpsANISymmetryFunctions.operation
-
-class TorchANISymmetryFunctions(torch.nn.Module):
-    """Optimized TorchANI symmetry functions
-
-    Optimized drop-in replacement for torchani.AEVComputer (https://aiqm.github.io/torchani/api.html?highlight=speciesaev#torchani.AEVComputer)
-
-    Example::
-
-        >>> import mdtraj
-        >>> import torch
-        >>> import torchani
-
-        >>> from NNPOps.SymmetryFunctions import TorchANISymmetryFunctions
-
-        >>> device = torch.device('cuda')
-
-        # Load a molecule
-        >>> molecule = mdtraj.load('molecule.mol2')
-        >>> species = torch.tensor([[atom.element.atomic_number for atom in molecule.top.atoms]], device=device)
-        >>> positions = torch.tensor(molecule.xyz * 10, dtype=torch.float32, requires_grad=True, device=device)
-
-        # Construct ANI-2x and replace its native featurizer with NNPOps implementation
-        >>> nnp = torchani.models.ANI2x(periodic_table_index=True).to(device)
-        >>> nnp.aev_computer = TorchANISymmetryFunctions(nnp.species_converter, nnp.aev_computer, species)
-
-        # Compute energy
-        >>> energy = nnp((species, positions)).energies
-        >>> energy.backward()
-        >>> forces = -positions.grad.clone()
-
-        >>> print(energy, forces)
+class ANISymmetryFunctions(torch.nn.Module):
+    """
+    PyTorch module for optimized ANI symmetry functions.
     """
 
-    from torchani import AEVComputer # https://github.com/openmm/NNPOps/pull/38
-    from torchani import SpeciesConverter # https://github.com/openmm/NNPOps/pull/38
+    Holder = torch.classes.NNPOpsANISymmetryFunctions.Holder
+    operation = torch.ops.NNPOpsANISymmetryFunctions.operation
 
-    def __init__(self, converter: SpeciesConverter, symmFunc: AEVComputer, atomicNumbers: Tensor) -> None:
+    def __init__(self, numSpecies: int, Rcr: float, Rca: float,
+                 EtaR: list[float], ShfR: list[float], EtaA: list[float],
+                 Zeta: list[float], ShfA: list[float], ShfZ: list[float],
+                 atomSpecies: list[int]) -> None:
         """
-        Arguments:
-            converter: an instance of torchani.nn.SpeciesConverter (https://aiqm.github.io/torchani/api.html#torchani.SpeciesConverter)
-            symmFunc: an instance of torchani.AEVComputer (https://aiqm.github.io/torchani/api.html#torchani.AEVComputer)
-            atomicNumbers: a tesnor of atomic numbers, e.g. [[6, 1, ,1 ,1, 1]]
+        Create an `ANISymmetryFunctions` instance.
+
+        Parameters
+        ----------
+        numSpecies : int
+            The number of species.
+        Rcr : float
+            The cutoff distance for the radial symmetry functions.
+        Rca : float
+            The cutoff distance for the angular symmetry functions.
+        EtaR : list[float]
+            The Gaussian scale parameters for the radial symmetry functions.
+        ShfR : list[float]
+            The Gaussian shift parameters for the radial symmetry functions.
+        EtaA : list[float]
+            The Gaussian scale parameters for the angular symmetry functions.
+        Zeta : list[float]
+            The exponents for the angular symmetry functions.
+        ShfA : list[float]
+            The Gaussian shift parameters for the angular symmetry functions.
+        ShfZ : list[float]
+            The shift angles for the angular symmetry functions.
+        atomSpecies: list[int]
+            The species indices for each of the atoms.
         """
+
         super().__init__()
 
-        self.num_species = symmFunc.num_species
-        Rcr = symmFunc.Rcr
-        Rca = symmFunc.Rca
-        EtaR = symmFunc.EtaR[:, 0].tolist()
-        ShfR = symmFunc.ShfR[0, :].tolist()
-        EtaA = symmFunc.EtaA[:, 0, 0, 0].tolist()
-        Zeta = symmFunc.Zeta[0, :, 0, 0].tolist()
-        ShfA = symmFunc.ShfA[0, 0, :, 0].tolist()
-        ShfZ = symmFunc.ShfZ[0, 0, 0, :].tolist()
+        self.holder = ANISymmetryFunctions.Holder(numSpecies, Rcr, Rca, EtaR, ShfR, EtaA, Zeta, ShfA, ShfZ, atomSpecies)
 
-        # Convert atomic numbers to species
-        species = converter((atomicNumbers, torch.empty(0))).species[0].tolist()
-
-        # Create a holder
-        self.holder = Holder(self.num_species, Rcr, Rca, EtaR, ShfR, EtaA, Zeta, ShfA, ShfZ, species)
-
-        self.triu_index = torch.tensor([0]) # A dummy variable to make TorchScript happy ;)
-
-    def forward(self, species_positions: Tuple[Tensor, Tensor],
-                      cell: Optional[Tensor] = None,
-                      pbc: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
-        """Compute the atomic environment vectors
-
-        The signature of the method is identical to torchani.AEVComputer.forward (https://aiqm.github.io/torchani/api.html?highlight=speciesaev#torchani.AEVComputer.forward)
-
-        Arguments:
-            species_positions: atomic species and positions
-            cell: unitcell vectors
-            pbc: periodic boundary conditions
-
-        Returns:
-            SpeciesAEV: atomic species and environment vectors
-
+    def forward(self, positions: Tensor, cell: Optional[Tensor] = None) -> list[Tensor]:
         """
-        species, positions = species_positions
-        if species.shape[0] != 1:
-            raise ValueError('Batched computation of molecules is not supported')
-        if cell is not None:
-            if pbc is None:
-                raise ValueError('"pbc" has to be defined')
-            else:
-                pbc_: List[bool] = pbc.tolist() # Explicit type casting for TorchScript
-                if pbc_ != [True, True, True]:
-                    raise ValueError('Only fully periodic systems are supported, i.e. pbc = [True, True, True]')
+        Evaluate the ANI symmetry functions.
 
-        radial, angular = operation(self.holder, positions[0], cell)
-        features = torch.cat((radial, angular), dim=1).unsqueeze(0)
+        Parameters
+        ----------
+        positions : Tensor
+            Atomic positions.
+        cell : Tensor, optional
+            Box vectors for periodic boundary conditions, if provided.
 
-        return species, features
+        Returns
+        -------
+        [Tensor, Tensor]
+            Values of the radial and angular symmetry functions for each atom.
+        """
+
+        return ANISymmetryFunctions.operation(self.holder, positions, cell)
